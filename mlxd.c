@@ -171,8 +171,11 @@ main (int argc, char **argv)
     printf("Ta = %4.8f C %4.8f F\n\n", ta, ta * (9.0/5.0) + 32.0);
 
     /* To calc parameters */
-
-	int resolution = (readConfig() & 0x30) >> 4; //new
+	unsigned char configHigh, configLow;
+    mlx90620_read_config( &configLow, &configHigh );	
+	uint16_t config = ((uint16_t) (configHigh << 8) | configLow)
+	
+	int resolution = (config & 0x30) >> 4; //new
 	float resolution_comp = pow(2.0, (3 - resolution)); //new
 	ai_scale = (int)(EEPROM[0xD9] & 0xF0) >> 4; //new
 	bi_scale = (int) EEPROM[0xD9] & 0x0F; //new
@@ -515,18 +518,23 @@ mlx90620_cp()
 float
 mlx90620_ta()  //new - rewrote function
 {
-	int resolution = (readConfig() & 0x30) >> 4;
+	
+	unsigned char configHigh, configLow;
+    mlx90620_read_config( &configLow, &configHigh );	
+	uint16_t config = ((uint16_t) (configHigh << 8) | configLow)
+
+	int resolution = (config & 0x30) >> 4;
 	float resolution_comp = pow(2.0, (3 - resolution));
     int ptat = mlx90620_ptat();
 	
 	int k_t1_scale = (EEPROM[0xD2] & 0xF0) >> 4;
 	int k_t2_scale = (EEPROM[0xD2] & 0x0F) + 10;
 	float vth =  twos_16(EEPROM[0xDB], EEPROM[0xDA]);
-	vth = v_th / resolution_comp;
+	vth = vth / resolution_comp;
 	float kt1 = twos_16(EEPROM[0xDD], EEPROM[0xDC]);
-	kt1 = k_t1 / (pow(2, k_t1_scale) * resolution_comp);
+	kt1 = kt1 / (pow(2, k_t1_scale) * resolution_comp);
 	float kt2 = twos_16(EEPROM[0xDF], EEPROM[0xDE]);
-	kt2 = k_t2 /(pow(2, k_t2_scale) * resolution_comp);
+	kt2 = kt2 /(pow(2, k_t2_scale) * resolution_comp);
 	
 	
     return ((-kt1 + sqrt( kt1*kt1 - (4 * kt2) * (vth - ptat) )) / (2 * kt2) ) + 25.0;
