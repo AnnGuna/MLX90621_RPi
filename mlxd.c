@@ -172,8 +172,8 @@ main (int argc, char **argv)
 
     /* To calc parameters */
 
-	resolution = (int) (readConfig() & 0x30) >> 4; //new
-	resolution_comp = (float) pow(2.0, (3 - resolution)); //new
+	int resolution = (readConfig() & 0x30) >> 4; //new
+	float resolution_comp = pow(2.0, (3 - resolution)); //new
 	ai_scale = (int)(EEPROM[0xD9] & 0xF0) >> 4; //new
 	bi_scale = (int) EEPROM[0xD9] & 0x0F; //new
 	acp = (float) twos_16(EEPROM[0xD4], EEPROM[0xD3]) / resolution_comp; //new
@@ -201,13 +201,11 @@ main (int argc, char **argv)
         if ( !mlx90620_ir_read() ) exit(0);
 
 		// new - start
-		resolution = (int) (readConfig() & 0x30) >> 4; //new
-		resolution_comp = (float) pow(2.0, (3 - resolution)); //new
 		cpix = mlx90620_cp();
 		
 		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
 		tak4 = pow((float) ta + 273.15, 4.0);
-		minTemp = NULL, maxTemp = NULL;
+		//minTemp = NULL, maxTemp = NULL;
 		for ( i = 0; i < 64; i++) {
 			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
 			b_ij = (float) (signed char)(EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
@@ -223,13 +221,13 @@ main (int argc, char **argv)
 			v_ir_comp = v_ir_tgc_comp / emissivity;
 			float temperature = pow((v_ir_comp / alpha_comp) + tak4, 1.0 / 4.0) - 274.15;
 
-			temperatures[i] = temperature;
+			/*temperatures[i] = temperature;
 			if (minTemp == NULL || temperature < minTemp) {
 				minTemp = temperature;
 			}
 			if (maxTemp == NULL || temperature > maxTemp) {
 				maxTemp = temperature;
-			}
+			}*/
 			
 			temperaturesInt[x] = (unsigned short)((to + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
 		}
@@ -517,17 +515,17 @@ mlx90620_cp()
 float
 mlx90620_ta()  //new - rewrote function
 {
-	resolution = (int) (readConfig() & 0x30) >> 4;
-	resolution_comp = (float) pow(2.0, (3 - resolution));
-    ptat = (int) mlx90620_ptat();
+	int resolution = (readConfig() & 0x30) >> 4;
+	float resolution_comp = pow(2.0, (3 - resolution));
+    int ptat = mlx90620_ptat();
 	
-	k_t1_scale = (int) (EEPROM[0xD2] & 0xF0) >> 4;
-	k_t2_scale = (int) (EEPROM[0xD2] & 0x0F) + 10;
-	vth = (float) twos_16(EEPROM[0xDB], EEPROM[0xDA]);
+	int k_t1_scale = (EEPROM[0xD2] & 0xF0) >> 4;
+	int k_t2_scale = (EEPROM[0xD2] & 0x0F) + 10;
+	float vth =  twos_16(EEPROM[0xDB], EEPROM[0xDA]);
 	vth = v_th / resolution_comp;
-	kt1 = (float) twos_16(EEPROM[0xDD], EEPROM[0xDC]);
+	float kt1 = twos_16(EEPROM[0xDD], EEPROM[0xDC]);
 	kt1 = k_t1 / (pow(2, k_t1_scale) * resolution_comp);
-	kt2 = (float) twos_16(EEPROM[0xDF], EEPROM[0xDE]);
+	float kt2 = twos_16(EEPROM[0xDF], EEPROM[0xDE]);
 	kt2 = k_t2 /(pow(2, k_t2_scale) * resolution_comp);
 	
 	
