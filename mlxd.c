@@ -67,7 +67,7 @@ int mlx90620_ptat ();
 int mlx90620_cp ();
 float mlx90620_ta ();
 int mlx90620_ir_read ();
-int16_t twos_16(uint8_t highByte, uint8_t lowByte); //new
+float twos_16(char highByte, char lowByte); //new
 
 char EEPROM[256];
 signed char ir_pixels[128];
@@ -107,13 +107,13 @@ main (int argc, char **argv)
     int vir;
     int vcp;
     float alpha;
-    float vir_compensated;
-    float vcp_off_comp, vir_off_comp, vir_tgc_comp;
+    float v_ir_comp; //new
+    float v_cp_off_comp, v_ir_off_comp, v_ir_tgc_comp; //new
 
     /* IR pixel individual offset coefficient */
-    int ai;
+    int a_ij; //new
     /* Individual Ta dependence (slope) of IR pixels offset */
-    int bi;
+    int b_ij; //new
     /* Individual sensitivity coefficient */
     int delta_alpha;
     /* Compensation pixel individual offset coefficients */
@@ -121,7 +121,7 @@ main (int argc, char **argv)
     /* Individual Ta dependence (slope) of the compensation pixel offset */
     int bcp;
     /* Sensitivity coefficient of the compensation pixel */
-    int alphacp;
+    int alpha_cp; //new
     /* Thermal Gradient Coefficient */
     int tgc;
     /* Scaling coefficient for slope of IR pixels offset */
@@ -133,7 +133,15 @@ main (int argc, char **argv)
     /* Scaling coefficient for individual sensitivity */
     int delta_alpha_scale;
     /* Emissivity */
-    float epsilon;
+    float emissivity; //new
+	
+	int ai_scale; //new
+	int a_common; //new
+	int cpix; //new
+	float tak4; //new
+	float minTemp; //new
+	float maxTemp; //new
+	float alpha_comp; //new
 
 
     program_name = argv[0];
@@ -164,14 +172,15 @@ main (int argc, char **argv)
 
     /* To calc parameters */
 
-	int resolution = (readConfig() & 0x30) >> 4; //new
-	float resolution_comp = pow(2.0, (3 - resolution)); //new
-	a_i_scale = (int)(EEPROM[0xD9] & 0xF0) >> 4; //new
+	resolution = (int) (readConfig() & 0x30) >> 4; //new
+	resolution_comp = (float) pow(2.0, (3 - resolution)); //new
+	ai_scale = (int)(EEPROM[0xD9] & 0xF0) >> 4; //new
 	bi_scale = (int) EEPROM[0xD9] & 0x0F; //new
 	acp = (float) twos_16(EEPROM[0xD4], EEPROM[0xD3]) / resolution_comp; //new
-	bcp = (float) (signed_char)(EEPROM[0xD5]) / (pow(2.0, (float)bi_scale) * resolution_comp); //new
-	alphacp = ((EEPROM[0xD7] << 8) | EEPROM[0xD6]) / (pow(2.0, EEPROM[0xE2]) * resolution_comp); //new
-	tgc = (float) (signed_char)(EEPROM[0xD8]) / 32.0; //new
+	bcp = (float) (signed char)(EEPROM[0xD5]) / (pow(2.0, (float)bi_scale) * resolution_comp); //new
+	alpha0_scale = EEPROM[0xE2]; //new
+	alpha_cp = ((EEPROM[0xD7] << 8) | EEPROM[0xD6]) / (pow(2.0, EEPROM[0xE2]) * resolution_comp); //new
+	tgc = (float) (signed char)(EEPROM[0xD8]) / 32.0; //new
 	emissivity = ((EEPROM[0xE5] << 8) | EEPROM[0xE4])/ 32768.0; //new
 	a_common = twos_16(EEPROM[0xD1], EEPROM[0xD0]); //new
 	
@@ -192,19 +201,19 @@ main (int argc, char **argv)
         if ( !mlx90620_ir_read() ) exit(0);
 
 		// new - start
-		int resolution = (readConfig() & 0x30) >> 4; //new
-		float resolution_comp = pow(2.0, (3 - resolution)); //new
-		cpix = = mlx90620_cp();
+		resolution = (int) (readConfig() & 0x30) >> 4; //new
+		resolution_comp = (float) pow(2.0, (3 - resolution)); //new
+		cpix = mlx90620_cp();
 		
-		float v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
+		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
 		tak4 = pow((float) ta + 273.15, 4.0);
 		minTemp = NULL, maxTemp = NULL;
-		for (int i = 0; i < 64; i++) {
-			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, a_i_scale)) / resolution_comp;
-			b_ij = (float) (signed_char)(EEPROM[0x40 + i]) / (pow(2.0, b_i_scale) * resolution_comp);
+		for ( i = 0; i < 64; i++) {
+			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
+			b_ij = (float) (signed char)(EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
 			v_ir_off_comp = (float) ir_pixels[i] - (a_ij + b_ij * (ta - 25.0));
 			v_ir_tgc_comp = (float) v_ir_off_comp - tgc * v_cp_off_comp;
-			float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[CAL_A0_SCALE]));
+			float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[0xE2]));
 			alpha_ij = alpha_ij +  ((float) EEPROM[0x80 + i] / pow(2.0, (float) EEPROM[0xE3]));
 			alpha_ij = alpha_ij / resolution_comp;
 			//ksta = (float) twos_16(EEPROM[CAL_KSTA_H], EEPROM[CAL_KSTA_L]) / pow(2.0, 20.0);
@@ -507,9 +516,10 @@ mlx90620_cp()
 
 float
 mlx90620_ta()  //new - rewrote function
-	int resolution = (readConfig() & 0x30) >> 4;
-	float resolution_comp = pow(2.0, (3 - resolution));
-    int ptat = mlx90620_ptat();
+{
+	resolution = (int) (readConfig() & 0x30) >> 4;
+	resolution_comp = (float) pow(2.0, (3 - resolution));
+    ptat = (int) mlx90620_ptat();
 	
 	k_t1_scale = (int) (EEPROM[0xD2] & 0xF0) >> 4;
 	k_t2_scale = (int) (EEPROM[0xD2] & 0x0F) + 10;
