@@ -1,26 +1,19 @@
 /*
    simple demonstration daemon for the MLX90620 16x4 thermopile array
-
    Copyright (C) 2015 Chuck Werbick
-
    Based upon the program 'piir' by Mike Strean 
-
    Copyright (C) 2013 Mike Strean
-
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
-
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
-
 */
 #include <fcntl.h>
 #include <stdio.h>
@@ -74,7 +67,7 @@ int mlx90620_ptat ();
 int mlx90620_cp ();
 float mlx90620_ta ();
 int mlx90620_ir_read ();
-
+float twos_16(char highByte, char lowByte); //new
 
 char EEPROM[256];
 signed char ir_pixels[128];
@@ -88,6 +81,15 @@ void got_sigint(int sig) {
     exit(0);
    
 }
+
+
+float twos_16(char highByte, char lowByte){
+	float combined_word = 256 * highByte + lowByte;
+	if (combined_word > 32768.0)
+		return (combined_word - 65536.0);
+	return combined_word;
+}
+
 
 
 main (int argc, char **argv)
@@ -105,13 +107,13 @@ main (int argc, char **argv)
     int vir;
     int vcp;
     float alpha;
-    float vir_compensated;
-    float vcp_off_comp, vir_off_comp, vir_tgc_comp;
+    float v_ir_comp; //new
+    float v_cp_off_comp, v_ir_off_comp, v_ir_tgc_comp; //new
 
     /* IR pixel individual offset coefficient */
-    int ai;
+    int a_ij; //new
     /* Individual Ta dependence (slope) of IR pixels offset */
-    int bi;
+    int b_ij; //new
     /* Individual sensitivity coefficient */
     int delta_alpha;
     /* Compensation pixel individual offset coefficients */
@@ -119,7 +121,7 @@ main (int argc, char **argv)
     /* Individual Ta dependence (slope) of the compensation pixel offset */
     int bcp;
     /* Sensitivity coefficient of the compensation pixel */
-    int alphacp;
+    int alpha_cp; //new
     /* Thermal Gradient Coefficient */
     int tgc;
     /* Scaling coefficient for slope of IR pixels offset */
@@ -131,7 +133,15 @@ main (int argc, char **argv)
     /* Scaling coefficient for individual sensitivity */
     int delta_alpha_scale;
     /* Emissivity */
-    float epsilon;
+    float emissivity; //new
+	
+	int ai_scale; //new
+	int a_common; //new
+	int cpix; //new
+	float tak4; //new
+	float minTemp; //new
+	float maxTemp; //new
+	float alpha_comp; //new
 
 
     program_name = argv[0];
@@ -161,17 +171,22 @@ main (int argc, char **argv)
     printf("Ta = %4.8f C %4.8f F\n\n", ta, ta * (9.0/5.0) + 32.0);
 
     /* To calc parameters */
-
-    vcp = mlx90620_cp();
-    acp = (signed char)EEPROM[0xD4];
-    bcp = (signed char)EEPROM[0xD5];
-    alphacp = ( EEPROM[0xD7] << 8 ) | EEPROM[0xD6];
-    tgc = (signed char)EEPROM[0xD8];
-    bi_scale = EEPROM[0xD9];
-    alpha0 = ( EEPROM[0xE1] << 8 ) | EEPROM[0xE0];
-    alpha0_scale = EEPROM[0xE2];
-    delta_alpha_scale = EEPROM[0xE3];
-    epsilon = (( EEPROM[0xE5] << 8 ) | EEPROM[0xE4] ) / 32768.0;
+	unsigned char configHigh, configLow;
+    mlx90620_read_config( &configLow, &configHigh );	
+	uint16_t config = ((uint16_t) (configHigh << 8) | configLow);
+	
+	int resolution = (config & 0x30) >> 4; //new
+	float resolution_comp = pow(2.0, (3 - resolution)); //new
+	ai_scale = (int)(EEPROM[0xD9] & 0xF0) >> 4; //new
+	bi_scale = (int) EEPROM[0xD9] & 0x0F; //new
+	acp = (float) twos_16(EEPROM[0xD4], EEPROM[0xD3]) / resolution_comp; //new
+	bcp = (float) (signed char)(EEPROM[0xD5]) / (pow(2.0, (float)bi_scale) * resolution_comp); //new
+	alpha0_scale = EEPROM[0xE2]; //new
+	alpha_cp = ((EEPROM[0xD7] << 8) | EEPROM[0xD6]) / (pow(2.0, EEPROM[0xE2]) * resolution_comp); //new
+	tgc = (float) (signed char)(EEPROM[0xD8]) / 32.0; //new
+	emissivity = ((EEPROM[0xE5] << 8) | EEPROM[0xE4])/ 32768.0; //new
+	a_common = twos_16(EEPROM[0xD1], EEPROM[0xD0]); //new
+	
 
 
 
@@ -187,34 +202,46 @@ main (int argc, char **argv)
         }
 
         if ( !mlx90620_ir_read() ) exit(0);
-        for ( i = 0; i < 4; i++ ) {
-            for ( j = 0; j < 16; j++ ) {
 
-                x = ((j * 4) + i); /* index */
-                vir = ( ir_pixels[x*2+1] << 8 ) | ir_pixels[x*2];
-                ai = (signed char)EEPROM[x];
-                bi = (signed char)EEPROM[0x40 + x];
-                delta_alpha = EEPROM[0x80 + x];
+		// new - start
+		cpix = mlx90620_cp();
+		
+		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
+		tak4 = pow((float) ta + 273.15, 4.0);
+		//minTemp = NULL, maxTemp = NULL;
+		for ( i = 0; i < 64; i++) {
+			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
+			b_ij = (float) (signed char)(EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
+			v_ir_off_comp = (float) ir_pixels[i] - (a_ij + b_ij * (ta - 25.0));
+			v_ir_tgc_comp = (float) v_ir_off_comp - tgc * v_cp_off_comp;
+			float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[0xE2]));
+			alpha_ij = alpha_ij +  ((float) EEPROM[0x80 + i] / pow(2.0, (float) EEPROM[0xE3]));
+			alpha_ij = alpha_ij / resolution_comp;
+			//ksta = (float) twos_16(EEPROM[CAL_KSTA_H], EEPROM[CAL_KSTA_L]) / pow(2.0, 20.0);
+			//alpha_comp = (1 + ksta * (Tambient - 25.0)) * (alpha_ij - tgc * alpha_cp);
+			alpha_comp = (alpha_ij - tgc * alpha_cp);  	// For my MLX90621 the ksta calibrations were 0
+														// so I can ignore them and save a few cycles
+			v_ir_comp = v_ir_tgc_comp / emissivity;
+			float temperature = pow((v_ir_comp / alpha_comp) + tak4, 1.0 / 4.0) - 274.15;
 
-    		/* Calculate To */
-
-        	vcp_off_comp = (float)vcp - ( acp + (bcp / pow(2,EEPROM[217])) * (ta - 25.0)); //256
-        	vir_off_comp = (float)vir - ( ai + (bi / pow(2,EEPROM[217])) * (ta - 25.0)); //* 256
-        	vir_tgc_comp = vir_off_comp - (tgc / 32) * vcp_off_comp;
-        	vir_compensated = vir_tgc_comp / epsilon;
-	        alpha = ((alpha0 - (tgc / 32.0) * alphacp) / pow(2, alpha0_scale)) + delta_alpha / pow(2, delta_alpha_scale);
-	        to = pow(((vir_compensated / alpha) + pow((ta + 273.15), 4)), 1/4.0) - 273.15;
-	        temperaturesInt[x] = (unsigned short)((to + 273.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
-	        temperatures[x] = to;
-
-            }
-
-        }
+			/*temperatures[i] = temperature;
+			if (minTemp == NULL || temperature < minTemp) {
+				minTemp = temperature;
+			}
+			if (maxTemp == NULL || temperature > maxTemp) {
+				maxTemp = temperature;
+			}*/
+			
+			temperaturesInt[x] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
+			temperatures[x] = temperature;
+			printf("To = %4.8f, ", temperature);
+		}
+		// new - end
 
         fd = open(mlxFifo, O_WRONLY);
         write(fd, temperaturesInt, sizeof(temperaturesInt));
         close(fd);
-        //printf("Updated Temperatures!\n");
+        printf("Updated Temperatures!\n");
         usleep(100000);
     } while (1);
 
@@ -419,13 +446,13 @@ mlx90620_set_refresh_hz(int hz)
             rate_bits = 0b1101;
             break;
         case 1:
-            rate_bits = 0b1110; // 1 Hz default
+            rate_bits = 0b1110; // default
             break;
         case 0:
             rate_bits = 0b1111; // 0.5 Hz
             break;
         default:
-            rate_bits = 0b1110; // 1 Hz default
+            rate_bits = 0b1110;
     }
 
     unsigned char config_lsb, config_msb;
@@ -446,7 +473,7 @@ mlx90620_ptat()
 
     const unsigned char read_ptat[] = {
         0x02, // command
-        0x40, // start address *changed for MLX90621
+        0x40, // start address //new
         0x00, // address step
         0x01  // number of reads
     };
@@ -472,7 +499,7 @@ mlx90620_cp()
 
     const unsigned char compensation_pixel_read[] = {
         0x02, // command
-        0x41, // start address
+        0x41, // start address //new
         0x00, // address step
         0x01  // number of reads
     };
@@ -491,51 +518,28 @@ mlx90620_cp()
 /* calculation of absolute chip temperature */
 
 float
-mlx90620_ta()
+mlx90620_ta()  //new - rewrote function
 {
+	
+	unsigned char configHigh, configLow;
+    mlx90620_read_config( &configLow, &configHigh );	
+	uint16_t config = ((uint16_t) (configHigh << 8) | configLow);
+
+	int resolution = (config & 0x30) >> 4;
+	float resolution_comp = pow(2.0, (3 - resolution));
     int ptat = mlx90620_ptat();
 	
-	int16_t k_t1_scale, k_t2_scale, resolution;
-
-	float k_t1, k_t2, v_th;
-
-	resolution = uint16_t ((uint16_t) (*msb << 8) | *lsb); //added mlx90621
-
-    //int vth = ( EEPROM[0xDB] << 8 ) | EEPROM[0xDA];
-    //float kt1 = (( EEPROM[0xDD] << 8 ) | EEPROM[0xDC]) / 1024.0;
-    //float kt2 = (( EEPROM[0xDF] << 8 ) | EEPROM[0xDE]) / 1048576.0;
-    //return ((-kt1 + sqrt( kt1*kt1 - (4 * kt2) * (vth - ptat) )) / (2 * kt2) ) + 25.0;
-
-	//Calculate variables from EEPROM
-	k_t1_scale = (int16_t) (EEPROM[0xD2] & 0xF0) >> 4;
-	k_t2_scale = (int16_t) (EEPROM[0xD2] & 0x0F) + 10;
-
-	//Calc Vth(25)
-	v_th = (float) 256 * EEPROM[0xDB] + EEPROM[0xDB];
-
-	if (v_th >= 32768.0)
-		v_th -= 65536.0;
-
-	v_th = v_th / pow(2, (3 - resolution));
-	
-	//Calc Kt1
-	k_t1 = (float) 256 * EEPROM[0xDD] + EEPROM[0xDC];
-
-	if (k_t1 >= 32768.0)
-		k_t1 -= 65536.0;
-
-	//Calc Kt2
-	k_t1 /= (pow(2, k_t1_scale) * pow(2, (3 - resolution)));
-	k_t2 = (float) 256 * EEPROM[0xDF] + EEPROM[0xDE];
-
-	if (k_t2 >= 32768.0)
-		k_t2 -= 65536.0;
-
-	k_t2 /= (pow(2, k_t2_scale) * pow(2, (3 - resolution)));
+	int k_t1_scale = (EEPROM[0xD2] & 0xF0) >> 4;
+	int k_t2_scale = (EEPROM[0xD2] & 0x0F) + 10;
+	float vth =  twos_16(EEPROM[0xDB], EEPROM[0xDA]);
+	vth = vth / resolution_comp;
+	float kt1 = twos_16(EEPROM[0xDD], EEPROM[0xDC]);
+	kt1 = kt1 / (pow(2, k_t1_scale) * resolution_comp);
+	float kt2 = twos_16(EEPROM[0xDF], EEPROM[0xDE]);
+	kt2 = kt2 /(pow(2, k_t2_scale) * resolution_comp);
 	
 	
-	return ((-k_t1 + sqrt(sq(k_t1) - (4 * k_t2 * (v_th - (float) ptat)))) / (2 * k_t2)) + 25.0;
-	
+    return ((-kt1 + sqrt( kt1*kt1 - (4 * kt2) * (vth - ptat) )) / (2 * kt2) ) + 25.0;
 }
 
 /* IR data read */
