@@ -232,14 +232,16 @@ main (int argc, char **argv)
 				maxTemp = temperature;
 			}*/
 			
-			temperaturesInt[x] = (unsigned short)((to + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
+			temperaturesInt[x] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
+			temperatures[x] = temperature;
+			printf("To = %4.8f, ", temperature);
 		}
 		// new - end
 
         fd = open(mlxFifo, O_WRONLY);
         write(fd, temperaturesInt, sizeof(temperaturesInt));
         close(fd);
-        //printf("Updated Temperatures!\n");
+        printf("Updated Temperatures!\n");
         usleep(100000);
     } while (1);
 
