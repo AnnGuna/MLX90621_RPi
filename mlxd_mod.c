@@ -72,8 +72,8 @@ float twos_16(char highByte, char lowByte); //new
 char EEPROM[256];
 signed char ir_pixels[128];
 
-//char mlxFifo[] = "/var/run/mlx90620.sock";
-char mlxFifo[] = "/home/pi/mlx90620.txt";
+//char mlxFifo[] = "/home/pi/mlxd/mlx90620.sock";
+char mlxFifo[] = "/home/pi/mlxd/mlx90620.txt";
 
 
 void got_sigint(int sig) {
@@ -99,9 +99,9 @@ main (int argc, char **argv)
     signal(SIGINT, got_sigint);
     int fd;
 
-//	fp = fopen(mlxFifo, "w+");
-//    mkfifo(mlxFifo, 777);
+//      mkfifo(mlxFifo, 0666);
 //exit(0);
+
     int x;
     int i, j;
 
@@ -195,7 +195,7 @@ main (int argc, char **argv)
 
 
     /* do the work */
-
+int g = 1;
     do {
 
         /* POR/Brown Out flag */
@@ -239,21 +239,26 @@ main (int argc, char **argv)
 			temperaturesInt[i] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
 			temperatures[i] = temperature;
 
-
+			
 			printf("To = %4.8f, \n", temperature);
 		}
 	printf("end of for\n");
 		// new - end
-fp = fopen(mlxFifo, "w+");
+
+
 
 //        fd = open(mlxFifo, O_WRONLY);
 //	printf("file opened success\n");
 //        write(fd, temperaturesInt, sizeof(temperaturesInt));
 //        close(fd);
+
+	fp = fopen(mlxFifo, "w+"); 
 	fprintf(fp, "This is testing for fprintf...\n");
-	 fputs(fp,"%f %f\n",temperaturesInt,sizeof(temperaturesInt));
+	fprintf(fp,"%f %f\n",temperaturesInt,sizeof(temperaturesInt));
         printf("Updated Temperatures!\n");
 	fclose(fp);
+	g = g+1; if (g==8) exit (0); 
+
         usleep(100000);
     } while (1);
     unlink(mlxFifo);
