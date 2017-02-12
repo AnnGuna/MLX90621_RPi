@@ -102,7 +102,7 @@ main (int argc, char **argv)
 //      mkfifo(mlxFifo, 0666);
 //exit(0);
 
-    int x;
+    int n;
     int i, j;
 
     float to;
@@ -252,11 +252,14 @@ int g = 1;
 //        write(fd, temperaturesInt, sizeof(temperaturesInt));
 //        close(fd);
 
-	fp = fopen(mlxFifo, "w+"); 
-	fprintf(fp, "This is testing for fprintf...\n");
-	fprintf(fp,"%f %f\n",temperaturesInt,sizeof(temperaturesInt));
+	if (g==1) fp = fopen(mlxFifo, "w+"); 
+	//fprintf(fp, "This is testing for fprintf...\n");
+	for(n=0;n<64;n++) {
+		fprintf(fp,"%f",temperatures[n]);
+	}
+	fprintf(fp,"\n");
         printf("Updated Temperatures!\n");
-	fclose(fp);
+	//fclose(fp);
 	g = g+1; if (g==8) exit (0); 
 
         usleep(100000);
