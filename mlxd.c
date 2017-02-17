@@ -198,11 +198,12 @@ int g = 1;
 		
 		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
 		tak4 = pow((float) ta + 273.15, 4.0);
-		//minTemp = NULL, maxTemp = NULL;
+		//minTemp = 0, maxTemp = 0;
 		for ( i = 0; i < 64; i++) {
+			vir = ( ir_pixels[i*2+1] << 8 ) | ir_pixels[i*2];
 			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
-			b_ij = (float) (signed char)(EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
-			v_ir_off_comp = (float) ir_pixels[i] - (a_ij + b_ij * (ta - 25.0));
+			b_ij = (float) (EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
+			v_ir_off_comp = (float) vir - (a_ij + b_ij * (ta - 25.0));
 			v_ir_tgc_comp = (float) v_ir_off_comp - tgc * v_cp_off_comp;
 			float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[0xE2]));
 			alpha_ij = alpha_ij +  ((float) EEPROM[0x80 + i] / pow(2.0, (float) EEPROM[0xE3]));
@@ -215,10 +216,10 @@ int g = 1;
 			float temperature = pow((v_ir_comp / alpha_comp) + tak4, 1.0 / 4.0) - 274.15;
 
 			/*temperatures[i] = temperature;
-			if (minTemp == NULL || temperature < minTemp) {
+			if (minTemp == 0 || temperature < minTemp) {
 				minTemp = temperature;
 			}
-			if (maxTemp == NULL || temperature > maxTemp) {
+			if (maxTemp == 0 || temperature > maxTemp) {
 				maxTemp = temperature;
 			}*/
 
