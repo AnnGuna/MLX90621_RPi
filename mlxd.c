@@ -198,9 +198,10 @@ int g = 1;
 		
 		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
 		tak4 = pow((float) ta + 273.15, 4.0);
-		//minTemp = 0, maxTemp = 0;
+		//minTemp = 0; maxTemp = 0;
 		for ( i = 0; i < 64; i++) {
-			vir = ( ir_pixels[i*2+1] << 8 ) | ir_pixels[i*2];
+			
+			vir = ( ir_pixels[i*2+1] << 8) | ir_pixels[i*2];
 			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
 			b_ij = (float) (EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
 			v_ir_off_comp = (float) vir - (a_ij + b_ij * (ta - 25.0));
@@ -233,25 +234,34 @@ int g = 1;
 		// new - end
 
 
+/*
+        fd = open(mlxFifo, O_WRONLY);
+	printf("file opened success\n");
+        write(fd, temperaturesInt, sizeof(temperaturesInt));
+        close(fd);
+*/
 
-//        fd = open(mlxFifo, O_WRONLY);
-//	printf("file opened success\n");
-//        write(fd, temperaturesInt, sizeof(temperaturesInt));
-//        close(fd);
-
-	if (g==1) fp = fopen(mlxFifo, "w+"); 
+	if (g == 1) fp = fopen(mlxFifo, "w+"); 
 	//fprintf(fp, "This is testing for fprintf...\n");
 	for(n=0;n<64;n++) {
-		fprintf(fp,"%f",temperatures[n]);
+		if (n<63) {
+			fprintf(fp,"%f,",temperatures[n]); 
+		} else {
+			fprintf(fp,"%f",temperatures[n]);
+		}
 	}
-	fprintf(fp,"\n");
+	fprintf(fp,"\n"); 
+	//fflush(fp);
         printf("Updated Temperatures!\n");
 	//fclose(fp);
-	g = g+1; if (g==8) exit (0); 
+	g = g+1; 
+	//if (g==50) exit (0); 
+
+
 
         usleep(100000);
     } while (1);
-    unlink(mlxFifo);
+//    unlink(mlxFifo);
 
     exit (0);
 }
