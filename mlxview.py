@@ -42,7 +42,7 @@ SCALE = (36.2, 36.4)
 OFFSET = (530, 170)
 
 def getImage():
-    fn = r'/home/pi/tmp.jpg';
+    fn = r'/home/pi/mlxd/tmp.jpg';
     proc = subprocess.Popen('raspistill -o %s -w 640 -h 480 -n -t 3' %(fn),
                         shell=True, stderr=subprocess.STDOUT)
     proc.wait()
@@ -58,16 +58,11 @@ with picamera.PiCamera() as camera:
     camera.start_preview()
 
     # get the temperature array, and align with the image
-    fifo = open('/var/run/mlx90620.sock', 'r')
-    # get the whole FIFO
-    ir_raw = fifo.read()
-    # trim to 128 bytes
-    ir_trimmed = ir_raw[0:128]
-    # go all numpy on it
-    ir = np.frombuffer(ir_trimmed, np.uint16)
-    # set the array shape to the sensor shape (16x4)
-    ir = ir.reshape((16, 4))[::-1, ::-1]
-    ir = img_as_float(ir) 
+    file = open('/home/pi/mlxd/mlx90620.txt','r')
+    line = file.readline()
+    data = map(float, line.split(','))
+    datashape = np.reshape(data,(4,16))
+    ir = img_as_float(datashape) 
     # stretch contrast on our heat map 
     p2, p98 = np.percentile(ir, (2, 98))
     ir = exposure.rescale_intensity(ir, in_range=(p2, p98))
@@ -90,11 +85,10 @@ with picamera.PiCamera() as camera:
     #update loop
     while True:
         sleep(0.25)        
-        ir_raw = fifo.read()
-        ir_trimmed = ir_raw[0:128]
-        ir = np.frombuffer(ir_trimmed, np.uint16)
-        ir = ir.reshape((16, 4))[::-1, ::-1]
-        ir = img_as_float(ir)  
+        line = file.readline()
+        data = map(float, line.split(','))
+        datashape = np.reshape(data,(4,16))
+        ir = img_as_float(datashape) 
         p2, p98 = np.percentile(ir, (2, 98))
         ir = exposure.rescale_intensity(ir, in_range=(p2, p98))
         ir = exposure.equalize_hist(ir)
@@ -112,7 +106,3 @@ with picamera.PiCamera() as camera:
     print('Error! Closing...')
     camera.remove_overlay(o)
     fifo.close()
-            
-
-
- 
