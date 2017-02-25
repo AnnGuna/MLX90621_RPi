@@ -6,10 +6,10 @@ import picamera
 from PIL import Image
 from time import sleep
 import time
-
+import gtk.gdk
 
 var = 1
-while var <15:
+while var <5:
     # read data from text file
     file = open('/home/pi/mlxd/mlx90620.txt','r')
     lineList = file.readlines()
@@ -42,9 +42,21 @@ while var <15:
         o = camera.add_overlay(pad.tostring(), size=img.size)
         o.alpha = 128
         o.layer = 3
-        camera.capture('/home/pi/mlxd/Photos/image_comb' + str(var) + '.jpg')
+
+
+
+        w = gtk.gdk.get_default_root_window()
+        sz = w.get_size()
+        print "The size of the window is %d x %d" % sz
+        pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,False,8,sz[0],sz[1])
+        pb = pb.get_from_drawable(w,w.get_colormap(),0,0,0,0,sz[0],sz[1])
+        if (pb != None):
+            pb.save('/home/pi/mlxd/Photos/image_comb' + str(var) + '.png',"png")
+            print "Screenshot saved to screenshot."
+        else:
+            print "Unable to get the screenshot."
+
+        # camera.capture('/home/pi/mlxd/Photos/image_comb' + str(var) + '.jpg')
+        time.sleep(1)
         camera.stop_preview()
     var = var +1
-
-
-
