@@ -51,13 +51,14 @@ while var <2:
 
         
     # read data from text file
-    # file = open('/home/pi/mlxd/mlx90620.txt','r')
-    file = open('/home/pi/mlxd/testdata.txt','r')
+    file = open('/home/pi/mlxd/mlx90620.txt','r')
+    # file = open('/home/pi/mlxd/testdata.txt','r')
     lineList = file.readlines()
     file.close()
 
-    #map data to heatmap
-    data = map(float, lineList[-2].split(','))
+    # map data to heatmap
+    data = map(float, lineList[0].split(','))
+    del data[-1] # remove epoch time
     datashape = np.reshape(data,(4,16))
 
     # create figure
