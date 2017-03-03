@@ -11,6 +11,7 @@
 #include <math.h>
 #include <signal.h>
 #include <bcm2835.h>
+#include <time.h>
 
 #define VERSION "0.1.0"
 #define EXIT_FAILURE 1
@@ -57,6 +58,9 @@ float twos_16(char highByte, char lowByte); //new
 
 char EEPROM[256];
 signed char ir_pixels[128];
+
+//time_t rawtime;
+//double seconds;
 
 //char mlxFifo[] = "/home/pi/mlxd/mlx90620.sock";
 char mlxFifo[] = "/home/pi/mlxd/mlx90620.txt";
@@ -247,7 +251,8 @@ int g = 1;
 		if (n<63) {
 			fprintf(fp,"%f,",temperatures[n]); 
 		} else {
-			fprintf(fp,"%f",temperatures[n]);
+			//seconds = time(&rawtime);
+			fprintf(fp,"%f,%s",temperatures[n], argv[1]);
 		}
 	}
 	fprintf(fp,"\n"); 
@@ -260,7 +265,7 @@ int g = 1;
 
 
         usleep(100000);
-    } while (1);
+    } while (g<2);
 //    unlink(mlxFifo);
 
     exit (0);
