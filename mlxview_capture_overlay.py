@@ -42,7 +42,7 @@ def watermark(im, mark, position, opacity=1):
 
 
 var = 1
-while var <2:
+while var <15:
 
     with picamera.PiCamera() as camera:
         camera.resolution = (500, 400)
@@ -57,7 +57,7 @@ while var <2:
     file.close()
 
     # map data to heatmap
-    data = map(float, lineList[0].split(','))
+    data = map(float, lineList[-1].split(','))
     del data[-1] # remove epoch time
     datashape = np.reshape(data,(4,16))
 
