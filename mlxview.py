@@ -55,12 +55,13 @@ im = getImage()
 with picamera.PiCamera() as camera:
     camera.resolution = (640, 480)
     camera.framerate = 20
-    camera.start_preview()
+    camera.start_preview(fullscreen=False, window = (100, 20, 640, 480))
 
     # get the temperature array, and align with the image
     file = open('/home/pi/mlxd/mlx90620.txt','r')
-    line = file.readline()
-    data = map(float, line.split(','))
+    lineList = file.readlines()
+    file.close()
+    data = map(float, lineList[-2].split(','))
     datashape = np.reshape(data,(4,16))
     ir = img_as_float(datashape) 
     # stretch contrast on our heat map 
@@ -85,8 +86,10 @@ with picamera.PiCamera() as camera:
     #update loop
     while True:
         sleep(0.25)        
-        line = file.readline()
-        data = map(float, line.split(','))
+        file = open('/home/pi/mlxd/mlx90620.txt','r')
+        lineList = file.readlines()
+        file.close()
+        data = map(float, lineList[-2].split(','))
         datashape = np.reshape(data,(4,16))
         ir = img_as_float(datashape) 
         p2, p98 = np.percentile(ir, (2, 98))
