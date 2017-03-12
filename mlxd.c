@@ -89,7 +89,7 @@ main (int argc, char **argv)
 //exit(0);
 
     int n;
-    int i, j;
+    int i, j, m;
 
     float to;
     float ta;
@@ -199,8 +199,8 @@ int g = 1;
 	v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
 	tak4 = pow((float) ta + 273.15, 4.0);
 	//minTemp = 0; maxTemp = 0;
-	for ( m = 0; i < 4; i++ ) {
-	    for ( n = 0; j < 16; j++ ) {
+	for ( m = 0; m < 4; m++ ) {
+	    for ( n = 0; n < 16; n++ ) {
 		i = ((n * 4) + m); /* index */
 
 		vir = ( ir_pixels[i*2+1] << 8) | ir_pixels[i*2];
