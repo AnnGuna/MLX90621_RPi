@@ -193,46 +193,48 @@ int g = 1;
 
         if ( !mlx90620_ir_read() ) exit(0);
 
-		// new - start
-		cpix = mlx90620_cp();
-		
-		v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
-		tak4 = pow((float) ta + 273.15, 4.0);
-		//minTemp = 0; maxTemp = 0;
-		for ( i = 0; i < 64; i++) {
-			
-			vir = ( ir_pixels[i*2+1] << 8) | ir_pixels[i*2];
-			a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
-			b_ij = (float) (EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
-			v_ir_off_comp = (float) vir - (a_ij + b_ij * (ta - 25.0));
-			v_ir_tgc_comp = (float) v_ir_off_comp - tgc * v_cp_off_comp;
-			float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[0xE2]));
-			alpha_ij = alpha_ij +  ((float) EEPROM[0x80 + i] / pow(2.0, (float) EEPROM[0xE3]));
-			alpha_ij = alpha_ij / resolution_comp;
-			//ksta = (float) twos_16(EEPROM[CAL_KSTA_H], EEPROM[CAL_KSTA_L]) / pow(2.0, 20.0);
-			//alpha_comp = (1 + ksta * (Tambient - 25.0)) * (alpha_ij - tgc * alpha_cp);
-			alpha_comp = (alpha_ij - tgc * alpha_cp);  	// For my MLX90621 the ksta calibrations were 0
-														// so I can ignore them and save a few cycles
-			v_ir_comp = v_ir_tgc_comp / emissivity;
-			float temperature = pow((v_ir_comp / alpha_comp) + tak4, 1.0 / 4.0) - 274.15;
+	// new - start
+	cpix = mlx90620_cp();
 
-			/*temperatures[i] = temperature;
-			if (minTemp == 0 || temperature < minTemp) {
-				minTemp = temperature;
-			}
-			if (maxTemp == 0 || temperature > maxTemp) {
-				maxTemp = temperature;
-			}*/
+	v_cp_off_comp = (float) cpix - (acp + bcp * (ta - 25.0));
+	tak4 = pow((float) ta + 273.15, 4.0);
+	//minTemp = 0; maxTemp = 0;
+	for ( m = 0; i < 4; i++ ) {
+	    for ( n = 0; j < 16; j++ ) {
+		i = ((n * 4) + m); /* index */
 
-			temperaturesInt[i] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
-			temperatures[i] = temperature;
+		vir = ( ir_pixels[i*2+1] << 8) | ir_pixels[i*2];
+		a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
+		b_ij = (float) (EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
+		v_ir_off_comp = (float) vir - (a_ij + b_ij * (ta - 25.0));
+		v_ir_tgc_comp = (float) v_ir_off_comp - tgc * v_cp_off_comp;
+		float alpha_ij = ((float) ((EEPROM[0xE1] << 8) | EEPROM[0xE0]) / pow(2.0, (float) EEPROM[0xE2]));
+		alpha_ij = alpha_ij +  ((float) EEPROM[0x80 + i] / pow(2.0, (float) EEPROM[0xE3]));
+		alpha_ij = alpha_ij / resolution_comp;
+		//ksta = (float) twos_16(EEPROM[CAL_KSTA_H], EEPROM[CAL_KSTA_L]) / pow(2.0, 20.0);
+		//alpha_comp = (1 + ksta * (Tambient - 25.0)) * (alpha_ij - tgc * alpha_cp);
+		alpha_comp = (alpha_ij - tgc * alpha_cp);  	// For my MLX90621 the ksta calibrations were 0
+													// so I can ignore them and save a few cycles
+		v_ir_comp = v_ir_tgc_comp / emissivity;
+		float temperature = pow((v_ir_comp / alpha_comp) + tak4, 1.0 / 4.0) - 274.15;
 
-			
-			printf("To = %4.8f, \n", temperature);
+		/*temperatures[i] = temperature;
+		if (minTemp == 0 || temperature < minTemp) {
+			minTemp = temperature;
 		}
-	printf("end of for\n");
-		// new - end
+		if (maxTemp == 0 || temperature > maxTemp) {
+			maxTemp = temperature;
+		}*/
 
+		temperaturesInt[i] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
+		temperatures[i] = temperature;
+
+
+		printf("To = %4.8f, \n", temperature);
+	    }
+	}
+	    
+	printf("end of for\n");
 
 /*
         fd = open(mlxFifo, O_WRONLY);
