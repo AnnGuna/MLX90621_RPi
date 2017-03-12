@@ -202,7 +202,7 @@ int g = 1;
 	for ( m = 0; m < 4; m++ ) {
 	    for ( n = 0; n < 16; n++ ) {
 		i = ((n * 4) + m); /* index */
-
+		
 		vir = ( ir_pixels[i*2+1] << 8) | ir_pixels[i*2];
 		a_ij = ((float) a_common + EEPROM[i] * pow(2.0, ai_scale)) / resolution_comp;
 		b_ij = (float) (EEPROM[0x40 + i]) / (pow(2.0, bi_scale) * resolution_comp);
@@ -228,13 +228,9 @@ int g = 1;
 
 		temperaturesInt[i] = (unsigned short)((temperature + 274.15) * 100.0) ; //give back as Kelvin (hundtredths of degree) so it can be unsigned...
 		temperatures[i] = temperature;
-
-
-		printf("To = %4.8f, \n", temperature);
 	    }
 	}
-	    
-	printf("end of for\n");
+
 
 /*
         fd = open(mlxFifo, O_WRONLY);
@@ -247,11 +243,14 @@ int g = 1;
 	//fprintf(fp, "This is testing for fprintf...\n");
 	for(n=0;n<64;n++) {
 		if (n<63) {
+			printf("To = %4.8f, \n", temperatures[n]);
 			fprintf(fp,"%f,",temperatures[n]); 
 		} else {
+			printf("To = %4.8f, \n", temperatures[n]);
 			fprintf(fp,"%f",temperatures[n]);
 		}
 	}
+	printf("end of for\n");
 	fprintf(fp,"\n"); 
 	//fflush(fp);
         printf("Updated Temperatures!\n");
