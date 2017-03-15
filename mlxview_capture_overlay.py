@@ -42,23 +42,24 @@ def watermark(im, mark, position, opacity=1):
 
 
 var = 1
-while var <2:
-
+while var <12:
+    print("Ann")
     with picamera.PiCamera() as camera:
         camera.resolution = (500, 400)
         camera.framerate = 24
-        camera.capture('/home/pi/mlxd/Photos/background.jpg')
+        camera.capture('/home/pi/mlxd/Photos/Required/background.jpg')
 
         
     # read data from text file
-    # file = open('/home/pi/mlxd/mlx90620.txt','r')
-    file = open('/home/pi/mlxd/testdata.txt','r')
+    file = open('/home/pi/mlxd/mlx90620.txt','r')
+    #file = open('/home/pi/mlxd/testdata.txt','r')
     lineList = file.readlines()
     file.close()
 
     #map data to heatmap
     data = map(float, lineList[-2].split(','))
-    datashape = np.reshape(data,(4,16))
+    data_shape = np.reshape(data,(16,4))
+    datashape = np.rot90(data_shape)
 
     # create figure
     sizes = np.shape(datashape)
@@ -70,23 +71,26 @@ while var <2:
     ax = plt.Axes(fig, [0., 0., 1., 1.])
     ax.set_axis_off()
     fig.add_axes(ax)
- 
+
+    ax.imshow(datashape, cmap='hot', interpolation='nearest')
+    # plt.savefig('/home/pi/mlxd/Photos/tempdata_'+ str(var) + '.jpg')
     mapped_data = ax.imshow(datashape, cmap='hot')
     # colorbar = ColorBar(mapped_data, location='lower left',bbox_to_anchor=(0.5, 1.05))
     # plt.gca().add_artist(colorbar)
     # plt.show()
     # ax.imshow(datashape, cmap='hot', interpolation='nearest')
-    plt.savefig('/home/pi/mlxd/Photos/tempdata.jpg')
+    plt.savefig('/home/pi/mlxd/Photos/Required/tempdata.jpg')
     plt.close()
 
     # create overlay image
-    img = Image.open('/home/pi/mlxd/Photos/tempdata.jpg')
+    img = Image.open('/home/pi/mlxd/Photos/Required/tempdata.jpg')
     img_w, img_h = img.size
-    background = Image.open('/home/pi/mlxd/Photos/background.jpg')
+    background = Image.open('/home/pi/mlxd/Photos/Required/background.jpg')
     bg_w, bg_h = background.size
     offset = ((bg_w - img_w) / 2, (bg_h - img_h) / 2)
     im = watermark(background, img, offset, 0.5)
-    im.save('/home/pi/mlxd/Photos/image_comb' + str(var) + '.jpg')
-
+    im.save('/home/pi/Downloads/test' + str(var) + '.jpg')
+    #im.save('/home/pi/Downloads/test.jpg')
     
     var = var +1
+    #time.sleep(35)
